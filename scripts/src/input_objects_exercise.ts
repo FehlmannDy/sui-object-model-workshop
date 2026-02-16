@@ -1,6 +1,7 @@
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import keyPairJson from "../keypair.json" with { type: "json" };
+import { Transaction } from '@mysten/sui/transactions';
 
 /**
  *
@@ -38,6 +39,8 @@ const main = async () => {
    * Create a new Transaction instance from the @mysten/sui/transactions module.
    */
 
+  const tx = new Transaction();
+
   /**
    * Task 2:
    *
@@ -48,6 +51,8 @@ const main = async () => {
    * Resources:
    * - SplitCoins: https://sdk.mystenlabs.com/typescript/transaction-building/basics
    */
+
+  const feeCoin = tx.splitCoins(tx.gas, [tx.pure.u64(10)])[0];
 
   /**
    * Task 3:
@@ -62,6 +67,13 @@ const main = async () => {
    * - Object inputs: https://sdk.mystenlabs.com/typescript/transaction-building/basics#object-references
    */
 
+  tx.moveCall({
+    target: `${PACKAGE_ID}::counter::increment`,
+    arguments: [
+      tx.object(COUNTER_OBJECT_ID),
+      feeCoin,
+    ],
+  });
   /**
    * Task 4:
    *
@@ -73,6 +85,20 @@ const main = async () => {
    * - Observing transaction results: https://sdk.mystenlabs.com/typescript/transaction-building/basics#observing-the-results-of-a-transaction
    */
 
+    const result = await suiClient.core.signAndExecuteTransaction({
+    transaction: tx,
+    signer: keypair,
+    include: { effects: true, events: true }
+  })
+
+  console.log(JSON.stringify(result, null, 2));
+  
+  if (result.FailedTransaction) {
+    throw new Error(`Transaction failed: ${result.FailedTransaction.status.error}`);
+  }
+
+  console.log("Digest is:", result.Transaction?.digest);
+
   /**
    * Task 5: Run the script with the command below and ensure it works!
    * 
@@ -82,4 +108,7 @@ const main = async () => {
    */
 };
 
-main();
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
